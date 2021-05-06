@@ -35,6 +35,16 @@ class Config(BaseSettings):
         10, env="RABBITMQ_RETRY_INTERVAL", description="RabbitMQ connection retry interval"
     )
 
+    routing_key: str = Field(
+        "task_result", env="ROUTING_KEY", description="RabbitMQ routing key for task results to be published"
+    )
+
+    result_exchange: str = Field(
+        'result_exchange', env="RESULT_EXCHANGE",
+        description="RabbitMQ exchange name to send results to"
+    )
+
+
 settings = None
 
 
