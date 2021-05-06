@@ -1,8 +1,7 @@
 from pydantic import (
     BaseSettings,
-    Field, PostgresDsn,
-    PositiveInt,
-    RedisDsn,
+    Field,
+    PositiveInt
 )
 from enum import Enum
 
@@ -14,6 +13,27 @@ class Config(BaseSettings):
         warning = "WARNING"
     log_level: _LogLevel = Field('INFO', env='LOG_LEVEL')
 
+    rabbitmq_url: str = Field(..., env="RABBITMQ_URL")
+
+    work_queue: str = Field(
+        "workers", env="WORK_QUEUE",
+        description="RabbitMQ work queue name to be shared with other workers"
+    )
+
+    task_exchange: str = Field(
+        'task_exchange', env="TASK_EXCHANGE",
+        description="RabbitMQ exchange name to receive tasks from"
+    )
+
+    binding_key: str = Field("task", env="BINDING_KEY", description="RabbitMQ binding key for receiving tasks")
+
+    threads_num: PositiveInt = Field(2, env="THREADS_NUM", description="Number of worker threads")
+
+    read_timeout: PositiveInt = Field(2, env="READ_TIMEOUT", description="RabbitMQ read interval timeout")
+
+    rabbitmq_retry_interval: PositiveInt = Field(
+        10, env="RABBITMQ_RETRY_INTERVAL", description="RabbitMQ connection retry interval"
+    )
 
 settings = None
 
