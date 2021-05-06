@@ -85,6 +85,5 @@ class Reader(threading.Thread):
     def _queue_put(self, result: data.ResultData):
         try:
             self.result_q.put_nowait(result)
-            getLogger().info(f"Fetched successful result from {result.url}")
         except Full:
             getLogger().error("Result queue is full, discarding the result")
