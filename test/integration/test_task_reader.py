@@ -42,9 +42,10 @@ def test_read_task(basic_task_reader: task_reader.TaskReader, publisher_channel)
             )
     # wait for the task to reach the consumer
     task = None
+    task_id = None
     for _ in range(10):
-        task = next(task_gen)
+        task, task_id = next(task_gen)
         if task:
             break
+    basic_task_reader.ack(task_id)
     assert task.link == "test"
-    basic_task_reader.close(reject=False)

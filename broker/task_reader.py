@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Generator, Optional
+from typing import Generator, Optional, Tuple
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.exceptions import AMQPConnectionError, ChannelError
 from broker import schema
@@ -13,7 +13,7 @@ from broker import exceptions
 
 class TaskReader(ABC):
     @abstractmethod
-    def get_task(self) -> Generator[Optional[schema.Task], None, None]:
+    def get_task(self) -> Generator[Tuple[Optional[schema.Task], Optional[int]], None, None]:
         """blocking task getter.
 
         returns None in case of read timeout.
@@ -21,11 +21,18 @@ class TaskReader(ABC):
         raise NotImplemented
 
     @abstractmethod
-    def close(self, reject: bool):
-        """Closes all open resources.
+    def close(self):
+        """Closes all open resources."""
+        raise NotImplemented
 
-        :param reject: If True reject the last message, acknowledges it otherwise.
-        """
+    @abstractmethod
+    def ack(self, task_id):
+        """Acknowledge the completion of the task_id"""
+        raise NotImplementedError
+
+    @abstractmethod
+    def reject(self, task_id):
+        """Reject the task_id"""
         raise NotImplemented
 
 
@@ -75,7 +82,7 @@ class RabbitmqTaskReader(TaskReader):
             getLogger().error(f"Giving up connecting to RabbitMQ: {self.connection_params}")
             raise exceptions.ConnectionFailed
 
-    def get_task(self) -> Generator[schema.Task, None, None]:
+    def get_task(self) -> [Tuple[Optional[schema.Task], Optional[int]], None, None]:
         while True:
             try:
                 for method_frame, properties, body in self.channel.consume(
@@ -93,23 +100,31 @@ class RabbitmqTaskReader(TaskReader):
                         self.channel.basic_ack(delivery_tag=method_frame.delivery_tag)
                         continue
                     else:
-                        # graceful closure needs such a tag
-                        self.last_delivery_tag = method_frame.delivery_tag
-                        yield result
-                        self.channel.basic_ack(delivery_tag=method_frame.delivery_tag)
+                        yield result, method_frame.delivery_tag
             except (AMQPConnectionError, ChannelError) as e:
                 getLogger().error(f"Connection to RabbitMQ failed {e}")
                 self.channel = self._connect()
                 continue
 
-    def close(self, reject: bool):
+    def close(self):
         try:
-            if self.last_delivery_tag:
-                if reject:
-                    self.channel.basic_reject()
-                else:
-                    self.channel.basic_ack()
             self.channel.cancel()
             self.channel.close()
         except Exception as e:
             getLogger().exception(e)
+
+    def ack(self, task_id):
+        try:
+            self.channel.basic_ack(delivery_tag=task_id)
+        except (AMQPConnectionError, ChannelError) as e:
+            getLogger().error(f"Connection to RabbitMQ failed {e}")
+            self.channel = self._connect()
+            self.channel.basic_ack(delivery_tag=task_id)
+
+    def reject(self, task_id):
+        try:
+            self.channel.basic_reject(delivery_tag=task_id)
+        except (AMQPConnectionError, ChannelError) as e:
+            getLogger().error(f"Connection to RabbitMQ failed {e}")
+            self.channel = self._connect()
+            self.channel.basic_reject(delivery_tag=task_id)
