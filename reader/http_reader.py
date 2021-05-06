@@ -1,7 +1,7 @@
-from abc import ABC, abstractmethod, abstractproperty
+from abc import ABC, abstractmethod
 from logging import getLogger
 import threading
-from queue import Queue, Full, Empty
+from queue import Queue, Empty
 from typing import Dict, Optional
 import requests
 from reader import data
@@ -61,13 +61,13 @@ class Reader(threading.Thread):
                 response = self.session.get(in_data.url)
             except Exception as e:
                 getLogger().error(f"Error while fetching http resource {in_data.url}, Exception: {repr(e)}")
-                self._queue_put(
+                self.result_q.put(
                     data.ResultData(url=in_data.url, data=None, error=repr(e))
                 )
                 continue
             else:
                 if response.status_code == 200:
-                    self._queue_put(data.ResultData(url=in_data.url, data=response.text, error=None))
+                    self.result_q.put(data.ResultData(url=in_data.url, data=response.text, error=None))
                     getLogger().info(f"Fetched successful result from {in_data.url}")
                     continue
                 elif response.status_code == 304:
@@ -76,14 +76,8 @@ class Reader(threading.Thread):
                     getLogger().error(
                         f"Http response status code mismatch expected 200 but received {response.status_code}"
                     )
-                    self._queue_put(data.ResultData(
+                    self.result_q.put(data.ResultData(
                         url=in_data.url, data=None,
                         error=f"result status code mismatch, status code:{response.status_code}")
                     )
                     continue
-
-    def _queue_put(self, result: data.ResultData):
-        try:
-            self.result_q.put_nowait(result)
-        except Full:
-            getLogger().error("Result queue is full, discarding the result")
