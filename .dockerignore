@@ -1,0 +1,5 @@
+ENV
+venv
+.venv
+.git
+README.md
