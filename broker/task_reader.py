@@ -90,7 +90,7 @@ class RabbitmqTaskReader(TaskReader):
                 ):
                     if body is None:
                         # in case of inactivity timeout
-                        yield None
+                        yield None, None
                         continue
                     try:
                         result = schema.Task.parse_raw(body)
