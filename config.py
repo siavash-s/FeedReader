@@ -35,6 +35,8 @@ class Config(BaseSettings):
         10, env="RABBITMQ_RETRY_INTERVAL", description="RabbitMQ connection retry interval"
     )
 
+    rabbitmq_connection_retry: PositiveInt = Field(10, env="RABBITMQ_CONNECTION_RETRY")
+
     routing_key: str = Field(
         "task_result", env="ROUTING_KEY", description="RabbitMQ routing key for task results to be published"
     )
