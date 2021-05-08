@@ -58,23 +58,26 @@ class MainLoop:
                     getLogger().info(f"Rejected duplicate task: {new_task.link}")
 
         # get all completed tasks
-        while True:
+        while not self.stop_event.is_set():
             try:
                 task_result: ResultData = self.result_q.get_nowait()
             except Empty:
                 break
             else:
-                try:
-                    items = self.parser.parse(task_result.data)
-                except parser.exceptions.ParseError as e:
-                    error = repr(e)
-                    publish_data = PublishData(link=task_result.url, items=None, error=error)
+                if task_result.error:
+                    publish_data = PublishData(link=task_result.url, items=None, error=task_result.error)
                 else:
-                    publish_data = PublishData(link=task_result.url, items=items, error=None)
-                finally:
-                    self.publisher.publish(publish_data.json())
-                    self.task_reader.ack(self.task_id_mapping[task_result.url])
-                    del self.task_id_mapping[task_result.url]
+                    try:
+                        items = self.parser.parse(task_result.data)
+                    except parser.exceptions.ParseError as e:
+                        error = repr(e)
+                        publish_data = PublishData(link=task_result.url, items=None, error=error)
+                    else:
+                        publish_data = PublishData(link=task_result.url, items=items, error=None)
+
+                self.publisher.publish(publish_data.json())
+                self.task_reader.ack(self.task_id_mapping[task_result.url])
+                del self.task_id_mapping[task_result.url]
 
     def _worker_threads_check(self):
         for i, worker in enumerate(self.workers):
